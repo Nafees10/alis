@@ -476,9 +476,13 @@ CmpErrVal!VarDefList parseVarDefList(ref TokRange toks){
 		return CmpErrVal!VarDefList(typeRes.err);
 	Expression type = typeRes.val;
 	if (isConst){
-		OpConstPre pre = new OpConstPre;
-		pre.operand = type;
-		type = pre;
+		if (AutoExpr autoExpr = cast(AutoExpr)type){
+			autoExpr.isConst = true;
+		} else {
+			OpConstPre pre = new OpConstPre;
+			pre.operand = type;
+			type = pre;
+		}
 	}
 
 	VarDefList ret = new VarDefList;
@@ -1511,14 +1515,19 @@ CmpErrVal!OpTagPre parseOpTagPre(ref TokRange toks){
 /// parses tokens for OpConstPre
 /// Returns: OpConstPre or error
 @GFn @Pre!"const"
-CmpErrVal!OpConstPre parseOpConstPre(ref TokRange toks){
+CmpErrVal!Expression parseOpConstPre(ref TokRange toks){
 	toks.popFront;
+	CmpErrVal!Expression rhsRes = P.parseExpr!(PrecedOfPre!"const", Expression)(toks);
+	if (rhsRes.isErr)
+		return CmpErrVal!Expression(rhsRes.err);
+	Expression rhs = rhsRes.val;
+	if (AutoExpr autoExpr = cast(AutoExpr)rhs){
+		autoExpr.isConst = true;
+		return CmpErrVal!Expression(autoExpr);
+	}
 	OpConstPre ret = new OpConstPre;
-	CmpErrVal!Expression rhs = P.parseExpr!(PrecedOfPre!"const", Expression)(toks);
-	if (rhs.isErr)
-		return CmpErrVal!OpConstPre(rhs.err);
-	ret.operand = rhs.val;
-	return CmpErrVal!OpConstPre(ret);
+	ret.operand = rhs;
+	return CmpErrVal!Expression(ret);
 }
 
 /// parses tokens for OpBitNotPre

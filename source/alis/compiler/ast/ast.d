@@ -1243,8 +1243,18 @@ public:
 /// `auto`
 public class AutoExpr : IdentExpr{
 public:
+	/// whether this is a `const auto`
+	bool isConst = false;
 	this(){
 		this.ident = "auto";
+	}
+
+	override JSONValue jsonOf() const pure {
+		JSONValue ret = super.jsonOf;
+		ret["ident"] = ident;
+		ret["_name"] = "IdentExpr";
+		ret["isConst"] = isConst;
+		return ret;
 	}
 }
 
