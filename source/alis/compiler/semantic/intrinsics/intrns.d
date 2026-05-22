@@ -107,7 +107,7 @@ alias ExprTranslators = ExprTranslatorsOf!(mixin(__MODULE__));
 @Intr(IntrN.UInt)
 @Intr(IntrN.Float)
 bool bitXCanCall(AValCT[] params, IdentU[] ctx){
-	if (params.length > 1)
+	if (params.length != 1)
 		return false;
 	AValCT p = params[0];
 	if (p.type != AValCT.Type.Literal)
