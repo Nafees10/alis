@@ -1,5 +1,5 @@
 name "alis"
-description "a scripting language"
+description "Alis Language"
 authors "Nafees Hassan" "Sheikh Muhammad Talha" "Usman Amjad"
 copyright "Copyright © 2024-2026, Nafees Hassan, Sheikh Muhammad Talha, Usman Amjad"
 license "proprietary"
