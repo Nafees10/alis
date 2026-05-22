@@ -218,7 +218,11 @@ private bool resultSet(Location pos, RExpr expr, ref St st){
 	void blockExprIter(BlockExpr node, ref St st){
 		RBlockExpr r = new RBlockExpr;
 		r.pos = node.pos;
-		immutable bool isAuto = cast(AutoExpr)node.type !is null;
+		AutoExpr autoExpr = cast(AutoExpr)node.type;
+		immutable bool isAuto = autoExpr !is null;
+		if (isAuto && autoExpr.isConst){
+			st.errs ~= errAutoConstIncompat(node.type.pos);
+		}
 		ADataType xType; {
 			if (!isAuto){
 				SmErrsVal!ADataType res = eval4Type(node.type, st.stabR, st.ctx,
@@ -320,8 +324,9 @@ private bool resultSet(Location pos, RExpr expr, ref St st){
 				continue;
 			}
 			nameSet[param.name] = (void[0]).init;
+			AutoExpr autoExpr = cast(AutoExpr)param.type;
 			immutable bool isAuto =
-				cast(AutoExpr)param.type !is null || param.type is null;
+				autoExpr !is null || param.type is null;
 			ADataType type;
 			if (!isAuto){
 				SmErrsVal!ADataType typeRes = eval4Type(param.type, st.stabR, st.ctx,
