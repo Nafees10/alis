@@ -57,6 +57,7 @@ public struct SmErr{
 		InitFail, /// Cannot initialize a value
 		NoReturn, /// Missing return
 		RefNonRefable, /// Trying to reference a non-referenceable
+		AutoConstIncompat, /// Using `auto const` where not allowed
 	}
 
 	/// where error happen
@@ -336,4 +337,10 @@ package SmErr errRefNonRefable(Location pos, string val){
 	return SmErr(pos,
 			format!"cannot reference value `%s"(val),
 			SmErr.Type.RefNonRefable);
+}
+
+/// Using `auto const` where not allowed
+package SmErr errAutoConstIncompat(Location pos){
+	return SmErr(pos, "Using `auto const` here is not allowed",
+			SmErr.Type.AutoConstIncompat);
 }

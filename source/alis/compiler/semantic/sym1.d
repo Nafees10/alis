@@ -88,7 +88,8 @@ private bool isRecDep(ASTNode node, ref St1 st){
 				continue;
 			}
 			nameSet[param.name] = (void[0]).init;
-			immutable bool isAuto = cast(AutoExpr)param.type !is null;
+			AutoExpr autoExpr = cast(AutoExpr)param.type;
+			immutable bool isAuto = autoExpr !is null;
 			ADataType type;
 			if (!isAuto){
 				SmErrsVal!ADataType typeRes = eval4Type(param.type, st.stabR, st.ctx,
@@ -113,7 +114,10 @@ private bool isRecDep(ASTNode node, ref St1 st){
 				}
 				if (isAuto){
 					type = valRes.val.type;
-				} else
+					if (autoExpr.isConst){
+						type = type.constOf;
+					}
+				}
 				if (valRes.val.canCastTo(type, st.ctx)){
 					symC.paramsV ~= valRes.val.to(type, st.ctx).val.data.OptVal!(void[]);
 				} else {
@@ -125,6 +129,10 @@ private bool isRecDep(ASTNode node, ref St1 st){
 			}
 			symC.paramsN ~= param.name;
 			symC.paramsT ~= type;
+		}
+		if (symC.paramsN.length != symC.paramsT.length ||
+				symC.paramsN.length != symC.paramsV.length){
+			return;
 		}
 		RFn r = new RFn;
 		r.pos = node.pos;
@@ -167,7 +175,8 @@ private bool isRecDep(ASTNode node, ref St1 st){
 		scope(exit) sym.isComplete = true;
 		AEnumConst* symC = &sym.enumCS;
 
-		immutable bool isAuto = cast(AutoExpr)node.type !is null;
+		AutoExpr autoExpr = cast(AutoExpr)node.type;
+		immutable bool isAuto = autoExpr !is null;
 		if (!isAuto){
 			SmErrsVal!ADataType typeRes = eval4Type(node.type, st.stabR, st.ctx,
 					st.dep, st.fns);
@@ -187,6 +196,9 @@ private bool isRecDep(ASTNode node, ref St1 st){
 		symC.data = valRes.val.data;
 		if (isAuto){
 			symC.type = valRes.val.type;
+			if (autoExpr.isConst){
+				symC.type = symC.type.constOf;
+			}
 		} else
 		if (valRes.val.canCastTo(symC.type, st.ctx)){
 			symC.data = valRes.val.to(symC.type, st.ctx).val.data;
@@ -208,7 +220,8 @@ private bool isRecDep(ASTNode node, ref St1 st){
 		scope(exit) sym.isComplete = true;
 		AEnum* symC = &sym.enumS;
 
-		immutable bool isAuto = cast(AutoExpr)node.type !is null;
+		AutoExpr autoExpr = cast(AutoExpr)node.type;
+		immutable bool isAuto = autoExpr !is null;
 		if (!isAuto){
 			SmErrsVal!ADataType typeRes = eval4Type(node.type, st.stabR, st.ctx,
 					st.dep, st.fns);
@@ -247,6 +260,9 @@ private bool isRecDep(ASTNode node, ref St1 st){
 				return;
 			}
 			symC.type = *cType;
+			if (autoExpr.isConst){
+				symC.type = symC.type.constOf;
+			}
 		} else {
 			foreach (size_t i, ref ADataType type; types){
 				if (!type.canCastTo(symC.type, st.ctx))
@@ -341,7 +357,8 @@ private bool isRecDep(ASTNode node, ref St1 st){
 		}
 
 		foreach (AggMemberNamed field; fields){
-			immutable bool isAuto = cast(AutoExpr)field.type !is null;
+			AutoExpr autoExpr = cast(AutoExpr)field.type;
+			immutable bool isAuto = autoExpr !is null;
 			ADataType type;
 			if (isAuto){
 				if (field.val is null){
@@ -368,6 +385,9 @@ private bool isRecDep(ASTNode node, ref St1 st){
 				val = valRes.val;
 				if (isAuto){
 					type = val.type;
+					if (autoExpr.isConst){
+						type = type.constOf;
+					}
 				} else
 				if (val.canCastTo(type, st.ctx)){
 					symC.initD ~= val.to(type, st.ctx).val.data.OptVal!(void[]);
@@ -401,7 +421,8 @@ private bool isRecDep(ASTNode node, ref St1 st){
 		scope(exit) sym.isComplete = true;
 		AVar* symC = &sym.varS;
 		symC.uid = symC.ident.toString;
-		immutable bool isAuto = cast(AutoExpr)node.type !is null;
+		AutoExpr autoExpr = cast(AutoExpr)node.type;
+		immutable bool isAuto = autoExpr !is null;
 		if (!isAuto){
 			SmErrsVal!ADataType typeVal = eval4Type(node.type, st.stabR, st.ctx,
 					st.dep, st.fns);
@@ -441,6 +462,9 @@ private bool isRecDep(ASTNode node, ref St1 st){
 			if (isAuto){
 				symC.type = val.val.type;
 				symC.initD = val.val.data.OptVal!(void[]);
+				if (autoExpr.isConst){
+					symC.type = symC.type.constOf;
+				}
 			} else
 			if (val.val.canCastTo(symC.type, st.ctx)){
 				symC.initD = val.val.to(symC.type, st.ctx).val.data.OptVal!(void[]);
@@ -575,7 +599,8 @@ private void structDo(Struct s, AStruct* symC, ref St1 st){
 	}
 
 	foreach (AggMemberNamed field; fields){
-		immutable bool isAuto = cast(AutoExpr)field.type !is null;
+		AutoExpr autoExpr = cast(AutoExpr)field.type;
+		immutable bool isAuto = autoExpr !is null;
 		ADataType type;
 		if (isAuto){
 			if (field.val is null){
@@ -602,6 +627,9 @@ private void structDo(Struct s, AStruct* symC, ref St1 st){
 			val = valRes.val;
 			if (isAuto){
 				type = val.type;
+				if (autoExpr.isConst){
+					type = type.constOf;
+				}
 			} else
 			if (val.canCastTo(type, st.ctx)){
 				symC.initD ~= val.to(type, st.ctx).val.data.OptVal!(void[]);
@@ -693,7 +721,8 @@ package void unionNamedDo(NamedUnion node, ASymbol* sym, ref St1 st){
 	symC.initI = size_t.max;
 	foreach (size_t i, AggMemberNamed field; node.members
 			.map!(m => cast(AggMemberNamed)m).filter!(m => m !is null).enumerate){
-		immutable bool isAuto = cast(AutoExpr)field.type !is null;
+		AutoExpr autoExpr = cast(AutoExpr)field.type;
+		immutable bool isAuto = autoExpr !is null;
 		ADataType type;
 		if (isAuto){
 			if (field.val is null){
@@ -724,6 +753,9 @@ package void unionNamedDo(NamedUnion node, ASymbol* sym, ref St1 st){
 			val = valRes.val;
 			if (isAuto){
 				type = val.type;
+				if (autoExpr.isConst){
+					type = type.constOf;
+				}
 			}	else
 			if (val.canCastTo(type, st.ctx)){
 				symC.initD = val.to(type, st.ctx).val.data.OptVal!(void[]);
