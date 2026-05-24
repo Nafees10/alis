@@ -213,7 +213,7 @@ public struct AValCT{
 			case Type.Expr:
 				return expr.toString;
 			case Type.Seq:
-				return seq.format!"(%(%r,%))";
+				return seq.map!(s => s.toString).join(",").format!"(%s)";
 		}
 		return null;
 	}
@@ -235,8 +235,12 @@ public struct AValCT{
 	}
 	/// ditto
 	this (RExpr expr){
-		this.type = Type.Expr;
-		this.expr = expr;
+		if (RAValCTExpr rExpr = cast(RAValCTExpr)expr){
+			this = rExpr.res;
+		} else {
+			this.type = Type.Expr;
+			this.expr = expr;
+		}
 	}
 	/// ditto
 	this (AValCT[] seq){

@@ -265,7 +265,8 @@ private bool resultSet(Location pos, RExpr expr, ref St st){
 			}
 			exprs ~= exprRes.val;
 		}
-		RCommaExpr r = new RCommaExpr(exprs);
+		RAValCTExpr r = new RAValCTExpr(
+				exprs.map!(e => e.AValCT).array.flatten.AValCT);
 		r.pos = node.pos;
 		resultSet(node.pos, r, st);
 	}
