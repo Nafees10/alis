@@ -25,7 +25,7 @@ alias ExprTranslators = ExprTranslatorsOf!(mixin(__MODULE__));
 
 @Intr(IntrN.Type){
 	@CallabilityChecker
-	bool typeCanCall(AValCT[]) pure {
+	bool typeCanCall(AValCT[] params, IdentU[] ctx) pure {
 		return false;
 	}
 	@ExprTranslator
@@ -353,7 +353,7 @@ SmErrsVal!RExpr arrayTranslate(IntrSt st){
 
 @Intr(IntrN.SeqLen){
 	@CallabilityChecker
-	bool seqLenCanCall(AValCT[]){
+	bool seqLenCanCall(AValCT[] params, IdentU[] ctx){
 		return true;
 	}
 	@ExprTranslator
