@@ -398,30 +398,6 @@ public:
 	}
 }
 
-/// Resolved Comma expression
-public class RCommaExpr : RExpr{
-public:
-	/// expressions
-	RExpr[] exprs;
-
-	this (RExpr[] exprs){
-		this.exprs = exprs;
-		if (exprs.map!(e => e.hasType).fold!((a, b) => a && b))
-			this.type = ADataType.ofSeq(exprs.map!(e => e.type).array);
-	}
-
-	override JSONValue jsonOf() const pure {
-		JSONValue ret = super.jsonOf;
-		ret["_name"] = "RCommaExpr";
-		ret["exprs"] = exprs.map!(a => a.jsonOf).array;
-		return ret;
-	}
-
-	override string toString() const pure {
-		return format!"(%(%s, %))"(exprs.map!(e => e.toString));
-	}
-}
-
 /// Resolved Function Call Expression
 public class RFnCallExpr : RExpr{
 public:
