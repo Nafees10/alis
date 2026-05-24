@@ -18,8 +18,6 @@ import std.meta;
 
 static import alis.compiler.ast.iter;
 
-debug import std.stdio;
-
 public alias RSTIter(Fns...) =
 	Instantiate!(alis.compiler.ast.iter.ASTIter!RSTNodes, Fns);
 
