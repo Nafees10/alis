@@ -18,6 +18,8 @@ import std.meta;
 
 static import alis.compiler.ast.iter;
 
+debug import std.stdio;
+
 public alias RSTIter(Fns...) =
 	Instantiate!(alis.compiler.ast.iter.ASTIter!RSTNodes, Fns);
 
@@ -404,7 +406,8 @@ public:
 
 	this (RExpr[] exprs){
 		this.exprs = exprs;
-		this.type = ADataType.ofSeq(exprs.map!(e => e.type).array);
+		if (exprs.map!(e => e.hasType).fold!((a, b) => a && b))
+			this.type = ADataType.ofSeq(exprs.map!(e => e.type).array);
 	}
 
 	override JSONValue jsonOf() const pure {
