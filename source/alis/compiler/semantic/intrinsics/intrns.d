@@ -377,7 +377,7 @@ SmErrsVal!RExpr arrayTranslate(IntrSt st){
 			return SmErrsVal!RExpr([
 					errIncompatType(st.pos, ADataType.ofUInt.toString,
 						st.params[$ - 1].valType.val.toString)]);
-		if (index.val + 1 > st.params.length)
+		if (index.val + 1 >= st.params.length)
 			return SmErrsVal!RExpr([
 					errBounds(st.pos, cast(ptrdiff_t)st.params.length - 1, index.val)]);
 		return SmErrsVal!RExpr(st.params[index.val].toRExpr);
