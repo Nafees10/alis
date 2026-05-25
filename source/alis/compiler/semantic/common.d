@@ -317,6 +317,7 @@ public:
 
 	this (){}
 	this(AValCT res){
+		assert (res.type != AValCT.Type.Expr);
 		this.res = res;
 		if (res.isVal)
 			this.type = res.valType.val;

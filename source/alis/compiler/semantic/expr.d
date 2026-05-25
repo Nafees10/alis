@@ -794,7 +794,7 @@ private bool resultSet(Location pos, RExpr expr, ref St st){
 		}
 
 		if (sub.type.type == ADataType.Type.Seq){
-			if (node.indexes.length != 0){
+			if (node.indexes.length != 1){
 				st.errs ~= errParamCount(node.pos, "index", 1, node.indexes.length);
 				return;
 			}
@@ -812,9 +812,9 @@ private bool resultSet(Location pos, RExpr expr, ref St st){
 						ind.toString);
 				return;
 			}
-			if (!ind.typeT.canCastTo(ADataType.ofUInt)){
+			if (!ind.val.canCastTo(ADataType.ofUInt)){
 				st.errs ~= errIncompatType(node.indexes[0].pos, "uint",
-						ind.typeT.toString);
+						ind.val.type.toString);
 				return;
 			}
 			if (subVal.type != AValCT.Type.Seq){
@@ -827,9 +827,8 @@ private bool resultSet(Location pos, RExpr expr, ref St st){
 				st.errs ~= errBounds(node.indexes[0].pos, subVal.seq.length, indI);
 				return;
 			}
-			RAValCTExpr r = new RAValCTExpr;
+			RExpr r = subVal.seq[indI].toRExpr;
 			r.pos = node.pos;
-			r.res = subVal.seq[indI];
 			resultSet(node.pos, r, st);
 			return;
 		}
