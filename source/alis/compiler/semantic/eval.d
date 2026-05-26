@@ -38,13 +38,44 @@ struct St{
 	AValCT res;
 }
 
+private SmErrsVal!AValCT eval(AValCT val, STab stabR, IdentU[] ctx){
+	final switch (val.type){
+		case AValCT.Type.Literal:
+		case AValCT.Type.Symbol:
+		case AValCT.Type.Type:
+			return val.SmErrsVal!AValCT;
+		case AValCT.Type.Expr:
+			return eval(val.expr, stabR, ctx);
+		case AValCT.Type.Seq:
+			AValCT[] seq = new AValCT[val.seq.length];
+			SmErr[] errs;
+			foreach (size_t i, AValCT v; val.seq){
+				SmErrsVal!AValCT res = eval(v, stabR, ctx);
+				if (res.isErr){
+					errs ~= res.err;
+					continue;
+				}
+				seq[i] = res.val;
+			}
+			if (errs.length){
+				return errs.SmErrsVal!AValCT;
+			}
+			return AValCT(seq).SmErrsVal!AValCT;
+	}
+}
+
 @ItFn @ITL(0) {
 	void literalIter(RLiteralExpr node, ref St st){
 		st.res = node.val.AValCT;
 	}
 
 	void avalCtIter(RAValCTExpr node, ref St st){
-		st.res = node.res;
+		SmErrsVal!AValCT res = eval(node.res, st.stabR, st.ctx);
+		if (res.isErr){
+			st.errs ~= res.err;
+			return;
+		}
+		st.res = res.val;
 	}
 
 	void exprIter(RExpr node, ref St st){
@@ -108,11 +139,12 @@ package SmErrsVal!ADataType eval4Type(RExpr expr, STab stab, IdentU[] ctx){
 	SmErrsVal!AValCT ret = eval(expr, stab, ctx);
 	if (ret.isErr)
 		return SmErrsVal!ADataType(ret.err);
-	if (!ret.val.asType.isVal ||
-			(ret.val.type != AValCT.Type.Type &&
-			 ret.val.type != AValCT.Type.Symbol))
+	if (!ret.val.isDType)
 		return SmErrsVal!ADataType([errExprTypeExpected(expr.pos)]);
-	return SmErrsVal!ADataType(ret.val.asType.val);
+	OptVal!ADataType typeRes = ret.val.asType;
+	if (!typeRes.isVal)
+		return SmErrsVal!ADataType([errExprTypeExpected(expr.pos)]);
+	return typeRes.val.SmErrsVal!ADataType;
 }
 
 /// ditto

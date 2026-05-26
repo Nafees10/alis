@@ -248,6 +248,23 @@ public struct AValCT{
 		this.seq = seq.dup;
 	}
 
+	/// Returns: if this is a data type
+	bool isDType(){
+		final switch (type){
+			case Type.Symbol:
+				return symS.isDType;
+			case Type.Literal:
+			case Type.Expr:
+				return false;
+			case Type.Type:
+				return true;
+			case Type.Seq:
+				return seq
+					.map!(v => v.isDType)
+					.fold!((a, b) => a && b);
+		}
+	}
+
 	/// Gets Data Type associated with this AValCT.
 	/// In case of symbol, Struct/Union/Enum becomes the type, otherwise none
 	/// In case of Literal, the data's type becomes the type
@@ -267,7 +284,15 @@ public struct AValCT{
 					return expr.type.OptVal!ADataType;
 				return OptVal!ADataType();
 			case Type.Seq:
-				assert (false, "AValCT.Type.Seq in AValCT.asType");
+				ADataType[] subTypes = new ADataType[seq.length];
+				foreach (size_t i, AValCT v; seq){
+					OptVal!ADataType t = v.asType;
+					if (!t.isVal){
+						return OptVal!ADataType();
+					}
+					subTypes[i] = t.val;
+				}
+				return ADataType.ofSeq(subTypes).OptVal!ADataType;
 		}
 	}
 

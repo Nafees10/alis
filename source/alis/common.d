@@ -1276,7 +1276,7 @@ main_switch:
 					OptVal!(void[]) subInit = subType.buildVal;
 					if (!subInit.isVal)
 						return OptVal!(void[])();
-					outBuf[offset .. subInit.val.length] = subInit.val;
+					outBuf[offset .. offset + subInit.val.length] = subInit.val;
 					offset += subInit.val.length;
 				}
 				return outBuf.OptVal!(void[]);
