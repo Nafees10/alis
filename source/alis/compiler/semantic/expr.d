@@ -403,7 +403,7 @@ private bool resultSet(Location pos, RExpr expr, ref St st){
 		ASymbol* sym = new ASymbol(AStruct());
 		AStruct* symC = &(sym.structS);
 		foreach (size_t i, string name; names){
-			symC.names[name] = i;
+			symC.names[name] = [i];
 			symC.nameVis[name] = Visibility.Pub;
 		}
 		symC.initD = vals.length.iota.map!(i => OptVal!(void[])()).array;
