@@ -1714,6 +1714,16 @@ public struct AStruct{
 		return types[0 .. memId].map!(t => t.sizeOf).sum;
 	}
 
+	/// Returns: range of human readable names for a member Id
+	auto namesOf(size_t memId, IdentU[] ctx = [IdentU.init]) const pure {
+		return names.byKey.filter!(n => exists(n, ctx))
+			.map!(n => tuple(n, names[n].countUntil(memId), names[n].length))
+			// (0 -> name, 1 -> index, 2 -> ids.length)
+			.filter!(n => n[1] >= 0)
+			.map!(n => n[2] == 1 ? n[0] : n[0].format!"%s[%d]"(n[1]))
+			.chain([memId.format!"<member %d>"]);
+	}
+
 	/// Returns: initialized instance of this, or nothing if cannot init
 	public OptVal!(void[]) buildVal() const pure {
 		foreach (const OptVal!(void[]) fieldInit; initD){
@@ -2004,6 +2014,16 @@ public struct AUnion{
 	/// Returns: size of this union
 	@property size_t sizeOf() const pure {
 		return sizeOfField + size_t.sizeof;
+	}
+
+	/// Returns: range of human readable names for a member Id
+	auto namesOf(size_t memId, IdentU[] ctx = [IdentU.init]) const pure {
+		return names.byKey.filter!(n => exists(n, ctx))
+			.map!(n => tuple(n, names[n].countUntil(memId), names[n].length))
+			// (0 -> name, 1 -> index, 2 -> ids.length)
+			.filter!(n => n[1] >= 0)
+			.map!(n => n[2] == 1 ? n[0] : n[0].format!"%s[%d]"(n[1]))
+			.chain([memId.format!"<member %d>"]);
 	}
 
 	/// Returns: initialized instance of this, or nothing if cannot init
