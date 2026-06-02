@@ -1760,21 +1760,21 @@ public struct AStruct{
 					break;
 				}
 				const size_t[] srcIds = type.names[name];
-				const size_t[] ids = this.names[name];
-				if (srcIds.length != ids.length){
+				const size_t[] dstIds = this.names[name];
+				if (srcIds.length != dstIds.length){
 					skip = true;
 					break;
 				}
-				foreach (size_t i; 0 .. ids.length){
+				foreach (size_t i; 0 .. dstIds.length){
 					size_t srcId = srcIds[i];
-					size_t dstId = ids[i];
+					size_t dstId = dstIds[i];
 					if (srcId in idMap ||
 							!type.types[srcId].canCastTo(this.types[dstId], ctx)){
 						skip = true;
 						break;
 					}
-					idMap[srcId] = dstId;
-					idRMap[dstId] = srcId;
+					idMap[dstId] = [size_t.max, srcId];
+					idRMap[srcId] = dstId;
 				}
 			}
 			if (!skip){
@@ -1869,20 +1869,20 @@ public struct AStruct{
 					break;
 				}
 				const size_t[] srcIds = type.names[name];
-				const size_t[] ids = this.names[name];
-				if (srcIds.length != ids.length){
+				const size_t[] dstIds = this.names[name];
+				if (srcIds.length != dstIds.length){
 					skip = true;
 					break;
 				}
-				foreach (size_t i; 0 .. ids.length){
+				foreach (size_t i; 0 .. dstIds.length){
 					size_t srcId = srcIds[i];
-					size_t dstId = ids[i];
+					size_t dstId = dstIds[i];
 					if (srcId in idMap ||
 							!type.types[srcId].canCastTo(this.types[dstId], ctx)){
 						skip = true;
 						break;
 					}
-					idMap[srcId] = dstId;
+					idMap[dstId] = srcId;
 				}
 			}
 			if (!skip){
