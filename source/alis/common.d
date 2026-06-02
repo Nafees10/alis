@@ -1745,15 +1745,27 @@ public struct AStruct{
 			size_t[size_t] idRMap; // index in src -> index in dst
 			foreach (string name; type.names.byKey
 					.filter!(n => type.exists(n, ctx))){
-				if (!this.exists(name, ctx) ||
-						this.names[name] in idMap ||
-						!type.types[type.names[name]].canCastTo(
-							this.types[this.names[name]], ctx)){
+				if (!this.exists(name, ctx)){
 					skip = true;
 					break;
 				}
-				idMap[this.names[name]] = [size_t.max, type.names[name]];
-				idRMap[type.names[name]] = this.names[name];
+				const size_t[] srcIds = type.names[name];
+				const size_t[] ids = this.names[name];
+				if (srcIds.length != ids.length){
+					skip = true;
+					break;
+				}
+				foreach (size_t i; 0 .. ids.length){
+					size_t srcId = srcIds[i];
+					size_t dstId = ids[i];
+					if (srcId in idMap ||
+							!type.types[srcId].canCastTo(this.types[dstId], ctx)){
+						skip = true;
+						break;
+					}
+					idMap[srcId] = dstId;
+					idRMap[dstId] = srcId;
+				}
 			}
 			if (!skip){
 				size_t offset = 0;
@@ -1842,14 +1854,26 @@ public struct AStruct{
 			size_t[size_t] idMap; // index in dst -> [index in src]
 			foreach (string name; type.names.byKey
 					.filter!(n => type.exists(n, ctx))){
-				if (!this.exists(name, ctx) ||
-						this.names[name] in idMap ||
-						!type.types[type.names[name]].canCastTo(
-							this.types[this.names[name]], ctx)){
+				if (!this.exists(name, ctx)){
 					skip = true;
 					break;
 				}
-				idMap[this.names[name]] = type.names[name];
+				const size_t[] srcIds = type.names[name];
+				const size_t[] ids = this.names[name];
+				if (srcIds.length != ids.length){
+					skip = true;
+					break;
+				}
+				foreach (size_t i; 0 .. ids.length){
+					size_t srcId = srcIds[i];
+					size_t dstId = ids[i];
+					if (srcId in idMap ||
+							!type.types[srcId].canCastTo(this.types[dstId], ctx)){
+						skip = true;
+						break;
+					}
+					idMap[srcId] = dstId;
+				}
 			}
 			if (!skip){
 				foreach (size_t i; 0 .. this.types.length){
