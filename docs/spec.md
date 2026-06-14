@@ -1802,8 +1802,12 @@ directly dependent on the underlying data structures in the compiler/runtime.
     of a union, struct, or enum `T`. Multiple names per single member are
     possible due to aliases. `memberId` is the member index, which goes up to
     `membersCount(T) - 1`. Only names accesible in current scope are included.
-- `memberId(T, N)` - gets `memberId` (`int`) for a member with name `N` on
-    union/struct type `T`. Only works if `N` is accessible in current scope.
+    Note that not all members will be named. In case of `T` being an enum,
+    this gets the name of a member at index `I`.
+- `memberIds(T, N)` - gets sequence of `memberId` (`uint`) for sequence of
+    members referred to by a `name == N`, on a union/struct type `T`. Only
+    works if `N` is accessible in current scope. In case `T` is an enum, the
+    result is a single `uint`
 - `member(T, N)` - gets member on a union/struct instance `T`, or enum type `T`.
     `N` can be the member name (`string`), or a `memberId` (`uint`).
 
