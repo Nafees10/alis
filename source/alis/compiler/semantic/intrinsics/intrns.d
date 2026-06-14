@@ -740,7 +740,12 @@ private bool memberInfoCanCall(AValCT param){
 			case AValCT.Type.Literal:
 				assert (false); // CallabilityChecker should've stopped this
 		}
-		RAValCTExpr r = new RAValCTExpr(ids.map!(i => i.AVal.AValCT).array.AValCT);
+		RAValCTExpr r;
+		if (ids.length == 1){
+			r = new RAValCTExpr(ids[0].AVal.AValCT);
+		} else {
+			r = new RAValCTExpr(ids.map!(i => i.AVal.AValCT).array.AValCT);
+		}
 		r.pos = st.pos;
 		return SmErrsVal!RExpr(r);
 	}
