@@ -803,47 +803,76 @@ private bool memberInfoCanCall(AValCT param){
 			type = *(type.refT);
 			if (type.type == ADataType.Type.Struct){
 				AStruct* structS = type.structS;
-				if (type.type == ADataType.Type.Struct)
-					r = new RStructRefMemberGetExpr(lhsExpr,
-							structS.names[name],
-							type.isConst || (
-								structS.ident.length && st.ctx.length &&
-								st.ctx[0] != structS.ident[0] &&
-								structS.nameVis[name] == Visibility.IPub)
-							);
+				if (structS !is null && structS.exists(name, st.ctx)){
+					immutable bool isConst = type.isConst || (
+							structS.ident.length && st.ctx.length &&
+							st.ctx[0] != structS.ident[0] &&
+							structS.nameVis[name] == Visibility.IPub);
+					const size_t[] ids = structS.names[name];
+					if (ids.length == 1){
+						r = new RStructRefMemberGetExpr(lhsExpr, ids[0], isConst);
+					} else {
+						r = new RAValCTExpr(ids
+								.map!(i => AValCT(
+										new RStructRefMemberGetExpr(lhsExpr, i, isConst)))
+								.array.AValCT);
+					}
+				}
 			} else
 			if (type.type == ADataType.Type.Union){
 				AUnion* unionS = type.unionS;
-				r = new RUnionRefMemberGetExpr(lhsExpr,
-						unionS.names[name],
-						type.isConst || (
+				if (unionS.exists(name, st.ctx)){
+					immutable bool isConst = type.isConst || (
 							unionS.ident.length && st.ctx.length &&
 							st.ctx[0] != unionS.ident[0] &&
-							unionS.nameVis[name] == Visibility.IPub)
-						);
+							unionS.nameVis[name] == Visibility.IPub);
+					const size_t[] ids = unionS.names[name];
+					if (ids.length == 1){
+						r = new RUnionRefMemberGetExpr(lhsExpr, ids[0], isConst);
+					} else {
+						r = new RAValCTExpr(ids
+								.map!(i => AValCT(
+										new RUnionRefMemberGetExpr(lhsExpr, i, isConst)))
+								.array.AValCT);
+					}
+				}
 			}
 		} else
 		if (type.type == ADataType.Type.Struct){
 			AStruct* structS = type.structS;
-			if (structS !is null && structS.exists(name, st.ctx))
-				r = new RStructMemberGetExpr(lhsExpr,
-						structS.names[name],
-						type.isConst || (
-							structS.ident.length && st.ctx.length &&
-							st.ctx[0] != structS.ident[0] &&
-							structS.nameVis[name] == Visibility.IPub)
-						);
+			if (structS !is null && structS.exists(name, st.ctx)){
+				immutable bool isConst = type.isConst || (
+						structS.ident.length && st.ctx.length &&
+						st.ctx[0] != structS.ident[0] &&
+						structS.nameVis[name] == Visibility.IPub);
+				const size_t[] ids = structS.names[name];
+				if (ids.length == 1){
+					r = new RStructMemberGetExpr(lhsExpr, ids[0], isConst);
+				} else {
+					r = new RAValCTExpr(ids
+							.map!(i => AValCT(
+									new RStructMemberGetExpr(lhsExpr, i, isConst)))
+							.array.AValCT);
+				}
+			}
 		} else
 		if (type.type == ADataType.Type.Union){
 			AUnion* unionS = type.unionS;
-			if (unionS.exists(name, st.ctx))
-				r = new RUnionMemberGetExpr(lhsExpr,
-						unionS.names[name],
-						type.isConst || (
-							unionS.ident.length && st.ctx.length &&
-							st.ctx[0] != unionS.ident[0] &&
-							unionS.nameVis[name] == Visibility.IPub)
-						);
+			if (unionS.exists(name, st.ctx)){
+				immutable bool isConst = type.isConst || (
+						unionS.ident.length && st.ctx.length &&
+						st.ctx[0] != unionS.ident[0] &&
+						unionS.nameVis[name] == Visibility.IPub);
+				const size_t[] ids = unionS.names[name];
+				if (ids.length == 1){
+					r = new RUnionMemberGetExpr(lhsExpr, ids[0], isConst);
+				} else {
+					r = new RAValCTExpr(ids
+							.map!(i => AValCT(
+									new RUnionMemberGetExpr(lhsExpr, i, isConst)))
+							.array.AValCT);
+				}
+			}
 		}
 		if (r is null){
 			return SmErrsVal!RExpr([
