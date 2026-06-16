@@ -1807,9 +1807,9 @@ directly dependent on the underlying data structures in the compiler/runtime.
 - `memberIds(T, N)` - gets sequence of `memberId` (`uint`) for sequence of
     members referred to by a `name == N`, on a union/struct type `T`. Only
     works if `N` is accessible in current scope. In case `T` is an enum, the
-    result is a single `uint`
-- `member(T, N)` - gets member on a union/struct instance `T`, or enum type `T`.
-    `N` can be the member name (`string`), or a `memberId` (`uint`).
+    result is a single `uint`, or empty sequence.
+- `member(T, N)` - gets member on a union/struct instance `T`. `N` is the 
+    member name (`string`).
 
 ## Attributes
 
