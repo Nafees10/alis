@@ -98,22 +98,6 @@ public struct AVal{
 		}
 
 		final switch (type.type){
-			case ADataType.Type.Seq:
-				if (target.type != ADataType.type.Seq ||
-						target.seqT.length != type.seqT.length)
-					return OptVal!AVal();
-				size_t off = 0;
-				void[] outBuf;
-				foreach (size_t i, ADataType t; type.seqT){
-					OptVal!AVal converted = AVal(t,
-							(data.ptr + off)[0 .. t.sizeOf]).to(target.seqT[i], ctx);
-					if (!converted.isVal)
-						return OptVal!AVal();
-					outBuf ~= converted.val.data;
-					off += t.sizeOf;
-				}
-				return AVal(target, outBuf).OptVal!AVal;
-				break;
 			case ADataType.Type.IntX:
 			case ADataType.Type.UIntX:
 			case ADataType.Type.Char:
@@ -426,17 +410,6 @@ unsignedSwitch:
 			return (cast(AVal)this).as!string.val;
 		}
 		final switch (type.type){
-			case ADataType.Type.Seq:
-				size_t offset = 0;
-				return type.seqT.length.iota
-					.map!(i => AVal(type.seqT[i],
-								data[offset .. offset + type.seqT[i].sizeOf]).toString,
-							i => i)
-					.tee!(i => offset += type.seqT[i[1]].sizeOf)
-					.map!(i => i[0])
-					.join(", ")
-					.format!"(%s)";
-				break;
 			case ADataType.Type.IntX:
 				switch (type.x){
 					static foreach (T; SignedInts){
@@ -1005,7 +978,6 @@ enum CastLevel : int{
 public struct ADataType{
 	/// possible Data Types
 	enum Type{
-		Seq, /// a sequence of types
 		IntX, /// an integer of X bits
 		UIntX, /// an unsigned integer of X bits
 		FloatX, /// a floating point number of X bits
@@ -1029,8 +1001,6 @@ public struct ADataType{
 		ubyte x;
 		/// type being referenced, for `Ref`, `Slice`, or `Array`
 		ADataType* refT;
-		/// type sequence, for `Seq`
-		ADataType[] seqT;
 		/// Struct reference for `Struct`
 		AStruct* structS;
 		/// Union reference for `Union`
@@ -1070,18 +1040,6 @@ public struct ADataType{
 		}
 main_switch:
 		final switch (this.type){
-			case ADataType.Type.Seq:
-				if (seqT.length != target.seqT.length)
-					return OptVal!CastLevel();
-				CastLevel maxLevel = CastLevel.None;
-				foreach (size_t i; 0 .. seqT.length){
-					OptVal!CastLevel r = this.seqT[i].castability(target.seqT[i], ctx);
-					if (!r.isVal)
-						break main_switch;
-					maxLevel = maxLevel.max(r.val);
-				}
-				return maxLevel.OptVal!CastLevel;
-
 			case ADataType.Type.IntX:
 				if (target.type != ADataType.Type.IntX)
 					break;
@@ -1247,13 +1205,6 @@ main_switch:
 				ret.refT.isConst = true;
 				ret.type = Type.Slice;
 				break;
-			case Type.Seq:
-				ret.type = Type.Seq;
-				ret.seqT = new ADataType[seqT.length];
-				foreach (size_t i, const ref ADataType t; seqT){
-					ret.seqT[i] = t.constOf;
-				}
-				break;
 			case Type.IntX:
 			case Type.UIntX:
 			case Type.FloatX:
@@ -1291,17 +1242,6 @@ main_switch:
 	/// Returns: initialized instance of this, or nothing if cannot init
 	OptVal!(void[]) buildVal() const pure {
 		final switch (type){
-			case ADataType.Type.Seq:
-				void[] outBuf = new void[this.seqT.map!(t => t.sizeOf).sum];
-				size_t offset = 0;
-				foreach (subType; this.seqT){
-					OptVal!(void[]) subInit = subType.buildVal;
-					if (!subInit.isVal)
-						return OptVal!(void[])();
-					outBuf[offset .. offset + subInit.val.length] = subInit.val;
-					offset += subInit.val.length;
-				}
-				return outBuf.OptVal!(void[]);
 			case ADataType.Type.IntX:
 			case ADataType.Type.UIntX:
 				return new void[sizeOf].OptVal!(void[]); // zero
@@ -1341,8 +1281,6 @@ main_switch:
 	string toString() const pure {
 		string ret = isConst ? "const " : null;
 		final switch (type){
-			case Type.Seq:
-				return ret ~ "(" ~ seqT.map!(t => t.toString).join(",") ~ ")";
 			case Type.IntX:
 				return ret ~ x.format!"$int(%d)";
 			case Type.UIntX:
@@ -1383,9 +1321,6 @@ main_switch:
 	/// Returns: byte size of type
 	@property size_t sizeOf() const pure {
 		final switch (type){
-			case Type.Seq:
-				return seqT.fold!((size_t a, const ADataType e) => a + e.sizeOf)
-					(size_t.init);
 			case Type.IntX, Type.UIntX, Type.FloatX:
 				return x / 8;
 			case Type.Char:
@@ -1419,9 +1354,6 @@ main_switch:
 		ret.type = type;
 		ret.isConst = isConst;
 		final switch (type){
-			case Type.Seq:
-				ret.seqT = seqT.map!(t => t.copy).array;
-				break;
 			case Type.IntX:
 			case Type.UIntX:
 			case Type.FloatX:
@@ -1504,14 +1436,6 @@ main_switch:
 	static ADataType ofNoInit() pure {
 		ADataType ret;
 		ret.type = ADataType.Type.NoInit;
-		return ret;
-	}
-
-	/// Returns: Sequence data type
-	static ADataType ofSeq(ADataType[] seq) pure {
-		ADataType ret;
-		ret.type = Type.Seq;
-		ret.seqT = seq;
 		return ret;
 	}
 
@@ -1622,14 +1546,6 @@ main_switch:
 		if (type != rhs.type)
 			return false;
 		final switch (type){
-			case Type.Seq:
-				if (seqT.length != rhs.seqT.length)
-					return false;
-				foreach (size_t i; seqT.length.iota){
-					if (seqT[i] != rhs.seqT[i])
-						return false;
-				}
-				return true;
 			case Type.IntX:
 			case Type.UIntX:
 			case Type.FloatX:

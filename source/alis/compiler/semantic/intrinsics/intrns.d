@@ -408,7 +408,6 @@ private bool memberInfoCanCall(AValCT param){
 	final switch (param.type){
 		case AValCT.Type.Type:
 			final switch (param.typeT.type){
-				case ADataType.Type.Seq:
 				case ADataType.Type.IntX:
 				case ADataType.Type.UIntX:
 				case ADataType.Type.FloatX:
@@ -461,7 +460,6 @@ private bool memberInfoCanCall(AValCT param){
 		final switch (p.type){
 			case AValCT.Type.Type:
 				final switch (p.typeT.type){
-					case ADataType.Type.Seq:
 					case ADataType.Type.IntX:
 					case ADataType.Type.UIntX:
 					case ADataType.Type.FloatX:
@@ -553,7 +551,6 @@ private bool memberInfoCanCall(AValCT param){
 		final switch (p.type){
 			case AValCT.Type.Type:
 				final switch (p.typeT.type){
-					case ADataType.Type.Seq:
 					case ADataType.Type.IntX:
 					case ADataType.Type.UIntX:
 					case ADataType.Type.FloatX:
@@ -666,7 +663,6 @@ private bool memberInfoCanCall(AValCT param){
 		final switch (p.type){
 			case AValCT.Type.Type:
 				final switch (p.typeT.type){
-					case ADataType.Type.Seq:
 					case ADataType.Type.IntX:
 					case ADataType.Type.UIntX:
 					case ADataType.Type.FloatX:
