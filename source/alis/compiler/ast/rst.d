@@ -455,8 +455,7 @@ public:
 	}
 
 	override string toString() const pure {
-		return format!"(%s.%s)"(val, val.type.structS.names.byKey.filter!(
-					n => val.type.structS.names[n] == memId).takeOne[0]);
+		return format!"(%s.%s)"(val, val.type.structS.namesOf(memId).front);
 	}
 }
 
@@ -490,8 +489,7 @@ public:
 	}
 
 	override string toString() const pure {
-		return format!"(%s@.@%s)"(val, val.type.structS.names.byKey.filter!(
-					n => val.type.structS.names[n] == memId).takeOne[0]);
+		return format!"(%s@.@%s)"(val, val.type.structS.namesOf(memId).front);
 	}
 }
 
@@ -523,8 +521,7 @@ public:
 	}
 
 	override string toString() const pure {
-		return format!"(%s.%s)"(val, val.type.unionS.names.byKey.filter!(
-					n => val.type.unionS.names[n] == memId).takeOne[0]);
+		return format!"(%s.%s)"(val, val.type.unionS.namesOf(memId).front);
 	}
 }
 
@@ -558,8 +555,7 @@ public:
 	}
 
 	override string toString() const pure {
-		return format!"(%s@.@%s)"(val, val.type.unionS.names.byKey.filter!(
-					n => val.type.unionS.names[n] == memId).takeOne[0]);
+		return format!"(%s@.@%s)"(val, val.type.unionS.namesOf(memId).front);
 	}
 }
 
@@ -787,8 +783,7 @@ public:
 	}
 
 	override string toString() const pure {
-		return format!"$unionIs(%s, %s)"(val, val.type.unionS.names.byKey.filter!(
-				n => val.type.structS.names[n] == memId).takeOne[0]);
+		return format!"$unionIs(%s, %s)"(val, val.type.unionS.namesOf(memId).front);
 	}
 }
 

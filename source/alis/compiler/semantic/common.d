@@ -167,11 +167,7 @@ public struct AValCT{
 					return sub.res.isVal;
 				return true;
 			case Type.Seq:
-				foreach (AValCT val; seq){
-					if (!val.isVal)
-						return false;
-				}
-				return true;
+				return false;
 		}
 	}
 
@@ -187,8 +183,7 @@ public struct AValCT{
 			case Type.Expr:
 				return expr.type.OptVal!ADataType;
 			case Type.Seq:
-				return ADataType.ofSeq(seq.map!(s => s.valType.val).array)
-					.OptVal!ADataType;
+				return OptVal!ADataType();
 		}
 	}
 
@@ -284,15 +279,7 @@ public struct AValCT{
 					return expr.type.OptVal!ADataType;
 				return OptVal!ADataType();
 			case Type.Seq:
-				ADataType[] subTypes = new ADataType[seq.length];
-				foreach (size_t i, AValCT v; seq){
-					OptVal!ADataType t = v.asType;
-					if (!t.isVal){
-						return OptVal!ADataType();
-					}
-					subTypes[i] = t.val;
-				}
-				return ADataType.ofSeq(subTypes).OptVal!ADataType;
+				return OptVal!ADataType();
 		}
 	}
 

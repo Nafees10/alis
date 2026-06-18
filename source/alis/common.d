@@ -6,6 +6,7 @@ module alis.common;
 import alis.utils;
 
 import std.string,
+			 std.array,
 			 std.traits,
 			 std.range,
 			 std.conv,
@@ -97,22 +98,6 @@ public struct AVal{
 		}
 
 		final switch (type.type){
-			case ADataType.Type.Seq:
-				if (target.type != ADataType.type.Seq ||
-						target.seqT.length != type.seqT.length)
-					return OptVal!AVal();
-				size_t off = 0;
-				void[] outBuf;
-				foreach (size_t i, ADataType t; type.seqT){
-					OptVal!AVal converted = AVal(t,
-							(data.ptr + off)[0 .. t.sizeOf]).to(target.seqT[i], ctx);
-					if (!converted.isVal)
-						return OptVal!AVal();
-					outBuf ~= converted.val.data;
-					off += t.sizeOf;
-				}
-				return AVal(target, outBuf).OptVal!AVal;
-				break;
 			case ADataType.Type.IntX:
 			case ADataType.Type.UIntX:
 			case ADataType.Type.Char:
@@ -241,7 +226,7 @@ public struct AVal{
 				AUnion* symC = this.type.unionS;
 				immutable size_t memId = data[symC.sizeOfField .. $].as!size_t;
 				if (!symC.hasBase(ctx) ||
-						memId != symC.names[This])
+						memId != symC.names[This][0])
 					return OptVal!AVal();
 				return AVal(symC.types[memId], data[0 .. symC.types[memId].sizeOf])
 					.OptVal!AVal;
@@ -425,17 +410,6 @@ unsignedSwitch:
 			return (cast(AVal)this).as!string.val;
 		}
 		final switch (type.type){
-			case ADataType.Type.Seq:
-				size_t offset = 0;
-				return type.seqT.length.iota
-					.map!(i => AVal(type.seqT[i],
-								data[offset .. offset + type.seqT[i].sizeOf]).toString,
-							i => i)
-					.tee!(i => offset += type.seqT[i[1]].sizeOf)
-					.map!(i => i[0])
-					.join(", ")
-					.format!"(%s)";
-				break;
 			case ADataType.Type.IntX:
 				switch (type.x){
 					static foreach (T; SignedInts){
@@ -491,19 +465,29 @@ unsignedSwitch:
 				return (cast(ushort[])data).format!"<%(%04x %):%s>"(type.toString);
 				break;
 			case ADataType.Type.Struct:
+				Appender!string ret;
 				size_t offset = 0;
-				return type.structS.types.length.iota
-					.map!(i => AVal(type.structS.types[i],
-								data[offset .. offset + type.structS.types[i].sizeOf]).toString,
-							i => i)
-					.tee!(i => offset += type.structS.types[i[1]].sizeOf)
-					.map!(i => format!"%s=%s"(
-								type.structS.names.byKey
-									.filter!(n => type.structS.names[n] == i[1])
-									.join("="),
-								i[0]))
-					.join(", ")
-					.format!"{%s}";
+				ret.put("{");
+				foreach (size_t id, const ADataType type; type.structS.types){
+					AVal val = AVal(type, data[offset .. offset + type.sizeOf]);
+					offset += type.sizeOf;
+					foreach (string name, const size_t[] ids; type.structS.names){
+						ptrdiff_t index = ids.countUntil(id);
+						if (index < 0) continue;
+						ret.put(name);
+						if (ids.length > 1){
+							ret.put("[");
+							ret.put(index.to!string);
+							ret.put("]");
+						}
+						ret.put(" ");
+					}
+					ret.put("= ");
+					ret.put(val.toString);
+					ret.put(",");
+				}
+				ret.put("}");
+				return ret.data;
 			case ADataType.Type.Union:
 				immutable size_t fieldSize = type.unionS.sizeOfField;
 				immutable size_t memId = data[fieldSize .. $].as!size_t;
@@ -511,12 +495,23 @@ unsignedSwitch:
 							data[0 .. type.unionS.types[memId].sizeOf]);
 				if (type.unionS.isUnnamed)
 					return val.toString;
-				return format!"{%s=%s}"(
-						type.unionS.names.byKey
-							.filter!(n => type.unionS.names[n] == memId)
-							.join("="),
-						val);
-				break;
+				Appender!string ret;
+				ret.put("{");
+				foreach (string name, const size_t[] ids; type.unionS.names){
+					ptrdiff_t index = ids.countUntil(memId);
+					if (index < 0) continue;
+					ret.put(name);
+					if (ids.length > 1){
+						ret.put("[");
+						ret.put(index.to!string);
+						ret.put("]");
+					}
+					ret.put(" ");
+				}
+				ret.put("= ");
+				ret.put(val.toString);
+				ret.put("}");
+				return ret.data;
 			case ADataType.Type.Enum:
 				foreach (size_t i; 0 .. type.enumS.memId.length){
 					if (data == type.enumS.memVal[i])
@@ -983,7 +978,6 @@ enum CastLevel : int{
 public struct ADataType{
 	/// possible Data Types
 	enum Type{
-		Seq, /// a sequence of types
 		IntX, /// an integer of X bits
 		UIntX, /// an unsigned integer of X bits
 		FloatX, /// a floating point number of X bits
@@ -1007,8 +1001,6 @@ public struct ADataType{
 		ubyte x;
 		/// type being referenced, for `Ref`, `Slice`, or `Array`
 		ADataType* refT;
-		/// type sequence, for `Seq`
-		ADataType[] seqT;
 		/// Struct reference for `Struct`
 		AStruct* structS;
 		/// Union reference for `Union`
@@ -1048,18 +1040,6 @@ public struct ADataType{
 		}
 main_switch:
 		final switch (this.type){
-			case ADataType.Type.Seq:
-				if (seqT.length != target.seqT.length)
-					return OptVal!CastLevel();
-				CastLevel maxLevel = CastLevel.None;
-				foreach (size_t i; 0 .. seqT.length){
-					OptVal!CastLevel r = this.seqT[i].castability(target.seqT[i], ctx);
-					if (!r.isVal)
-						break main_switch;
-					maxLevel = maxLevel.max(r.val);
-				}
-				return maxLevel.OptVal!CastLevel;
-
 			case ADataType.Type.IntX:
 				if (target.type != ADataType.Type.IntX)
 					break;
@@ -1189,7 +1169,7 @@ main_switch:
 				}
 				const AStruct* symC = this.structS;
 				if (symC.hasBase(ctx))
-					return symC.types[symC.names[This]].castability(target, ctx);
+					return symC.types[symC.names[This][0]].castability(target, ctx);
 				return OptVal!CastLevel();
 
 			case ADataType.Type.Union:
@@ -1224,13 +1204,6 @@ main_switch:
 			case Type.Array:
 				ret.refT.isConst = true;
 				ret.type = Type.Slice;
-				break;
-			case Type.Seq:
-				ret.type = Type.Seq;
-				ret.seqT = new ADataType[seqT.length];
-				foreach (size_t i, const ref ADataType t; seqT){
-					ret.seqT[i] = t.constOf;
-				}
 				break;
 			case Type.IntX:
 			case Type.UIntX:
@@ -1269,17 +1242,6 @@ main_switch:
 	/// Returns: initialized instance of this, or nothing if cannot init
 	OptVal!(void[]) buildVal() const pure {
 		final switch (type){
-			case ADataType.Type.Seq:
-				void[] outBuf = new void[this.seqT.map!(t => t.sizeOf).sum];
-				size_t offset = 0;
-				foreach (subType; this.seqT){
-					OptVal!(void[]) subInit = subType.buildVal;
-					if (!subInit.isVal)
-						return OptVal!(void[])();
-					outBuf[offset .. offset + subInit.val.length] = subInit.val;
-					offset += subInit.val.length;
-				}
-				return outBuf.OptVal!(void[]);
 			case ADataType.Type.IntX:
 			case ADataType.Type.UIntX:
 				return new void[sizeOf].OptVal!(void[]); // zero
@@ -1319,8 +1281,6 @@ main_switch:
 	string toString() const pure {
 		string ret = isConst ? "const " : null;
 		final switch (type){
-			case Type.Seq:
-				return ret ~ "(" ~ seqT.map!(t => t.toString).join(",") ~ ")";
 			case Type.IntX:
 				return ret ~ x.format!"$int(%d)";
 			case Type.UIntX:
@@ -1361,9 +1321,6 @@ main_switch:
 	/// Returns: byte size of type
 	@property size_t sizeOf() const pure {
 		final switch (type){
-			case Type.Seq:
-				return seqT.fold!((size_t a, const ADataType e) => a + e.sizeOf)
-					(size_t.init);
 			case Type.IntX, Type.UIntX, Type.FloatX:
 				return x / 8;
 			case Type.Char:
@@ -1397,9 +1354,6 @@ main_switch:
 		ret.type = type;
 		ret.isConst = isConst;
 		final switch (type){
-			case Type.Seq:
-				ret.seqT = seqT.map!(t => t.copy).array;
-				break;
 			case Type.IntX:
 			case Type.UIntX:
 			case Type.FloatX:
@@ -1482,14 +1436,6 @@ main_switch:
 	static ADataType ofNoInit() pure {
 		ADataType ret;
 		ret.type = ADataType.Type.NoInit;
-		return ret;
-	}
-
-	/// Returns: Sequence data type
-	static ADataType ofSeq(ADataType[] seq) pure {
-		ADataType ret;
-		ret.type = Type.Seq;
-		ret.seqT = seq;
 		return ret;
 	}
 
@@ -1600,14 +1546,6 @@ main_switch:
 		if (type != rhs.type)
 			return false;
 		final switch (type){
-			case Type.Seq:
-				if (seqT.length != rhs.seqT.length)
-					return false;
-				foreach (size_t i; seqT.length.iota){
-					if (seqT[i] != rhs.seqT[i])
-						return false;
-				}
-				return true;
 			case Type.IntX:
 			case Type.UIntX:
 			case Type.FloatX:
@@ -1652,8 +1590,8 @@ public struct AStruct{
 	ADataType[] types;
 	/// initialisation data for each field
 	OptVal!(void[])[] initD;
-	/// maps member names to indexes. Many to One
-	size_t[string] names;
+	/// maps member names to indexes sequence. Many to One
+	size_t[][string] names;
 	/// visibility for each name
 	Visibility[string] nameVis;
 	/// Visibility of struct
@@ -1678,7 +1616,7 @@ public struct AStruct{
 	}
 	/// whether the 0th member is aliased to `this`
 	@property bool hasBase(IdentU[] ctx = [IdentU.init]) const pure {
-		return exists(This, ctx);
+		return exists(This, ctx) && names[This].length == 1;
 	}
 	/// Returns: size of this struct
 	@property size_t sizeOf() const pure {
@@ -1690,6 +1628,16 @@ public struct AStruct{
 		if (memId >= types.length)
 			return size_t.max;
 		return types[0 .. memId].map!(t => t.sizeOf).sum;
+	}
+
+	/// Returns: range of human readable names for a member Id
+	auto namesOf(size_t memId, IdentU[] ctx = [IdentU.init]) const pure {
+		return names.byKey.filter!(n => exists(n, ctx))
+			.map!(n => tuple(n, names[n].countUntil(memId), names[n].length))
+			// (0 -> name, 1 -> index, 2 -> ids.length)
+			.filter!(n => n[1] >= 0)
+			.map!(n => n[2] == 1 ? n[0] : n[0].format!"%s[%d]"(n[1]))
+			.chain([memId.format!"<member %d>"]);
 	}
 
 	/// Returns: initialized instance of this, or nothing if cannot init
@@ -1723,15 +1671,27 @@ public struct AStruct{
 			size_t[size_t] idRMap; // index in src -> index in dst
 			foreach (string name; type.names.byKey
 					.filter!(n => type.exists(n, ctx))){
-				if (!this.exists(name, ctx) ||
-						this.names[name] in idMap ||
-						!type.types[type.names[name]].canCastTo(
-							this.types[this.names[name]], ctx)){
+				if (!this.exists(name, ctx)){
 					skip = true;
 					break;
 				}
-				idMap[this.names[name]] = [size_t.max, type.names[name]];
-				idRMap[type.names[name]] = this.names[name];
+				const size_t[] srcIds = type.names[name];
+				const size_t[] dstIds = this.names[name];
+				if (srcIds.length != dstIds.length){
+					skip = true;
+					break;
+				}
+				foreach (size_t i; 0 .. dstIds.length){
+					size_t srcId = srcIds[i];
+					size_t dstId = dstIds[i];
+					if (srcId in idMap ||
+							!type.types[srcId].canCastTo(this.types[dstId], ctx)){
+						skip = true;
+						break;
+					}
+					idMap[dstId] = [size_t.max, srcId];
+					idRMap[srcId] = dstId;
+				}
 			}
 			if (!skip){
 				size_t offset = 0;
@@ -1771,7 +1731,9 @@ public struct AStruct{
 
 		void[0][size_t] visIds;
 		foreach (string name; this.names.byKey.filter!(n => this.exists(n, ctx))){
-			visIds[this.names[name]] = (void[0]).init;
+			foreach (size_t id; this.names[name]){
+				visIds[id] = (void[0]).init;
+			}
 		}
 		size_t toInit = size_t.max;
 		foreach (size_t id; visIds.byKey){
@@ -1818,14 +1780,26 @@ public struct AStruct{
 			size_t[size_t] idMap; // index in dst -> [index in src]
 			foreach (string name; type.names.byKey
 					.filter!(n => type.exists(n, ctx))){
-				if (!this.exists(name, ctx) ||
-						this.names[name] in idMap ||
-						!type.types[type.names[name]].canCastTo(
-							this.types[this.names[name]], ctx)){
+				if (!this.exists(name, ctx)){
 					skip = true;
 					break;
 				}
-				idMap[this.names[name]] = type.names[name];
+				const size_t[] srcIds = type.names[name];
+				const size_t[] dstIds = this.names[name];
+				if (srcIds.length != dstIds.length){
+					skip = true;
+					break;
+				}
+				foreach (size_t i; 0 .. dstIds.length){
+					size_t srcId = srcIds[i];
+					size_t dstId = dstIds[i];
+					if (srcId in idMap ||
+							!type.types[srcId].canCastTo(this.types[dstId], ctx)){
+						skip = true;
+						break;
+					}
+					idMap[dstId] = srcId;
+				}
 			}
 			if (!skip){
 				foreach (size_t i; 0 .. this.types.length){
@@ -1845,7 +1819,9 @@ public struct AStruct{
 
 		void[0][size_t] visIds;
 		foreach (string name; this.names.byKey.filter!(n => this.exists(n, ctx))){
-			visIds[this.names[name]] = (void[0]).init;
+			foreach (size_t id; this.names[name]){
+				visIds[id] = (void[0]).init;
+			}
 		}
 		size_t toInit = size_t.max;
 		foreach (size_t id; visIds.byKey){
@@ -1865,18 +1841,42 @@ public struct AStruct{
 	}
 
 	string toString() const pure {
-		return format!"struct %s{%(%r,%)}"(ident.toString,
-				types.length.iota.map!(i => .format!"[%-(%s,%)]:%s%s"(
-						names.byKey.filter!(n => names[n] == i)
-						.map!(n => (nameVis[n] == Visibility.Default ? ""
-								: nameVis[n] == Visibility.Pub ? "pub "
-								: nameVis[n] == Visibility.IPub ? "ipub " : "idk ")
-							.format!"%s%s"(n)).array,
-						types[i].toString,
-						initD[i].isVal
-							? AVal(types[i], initD[i].val).toString.format!"=%s"
-							: ""
-						)));
+		Appender!string ret;
+		ret.put("struct ");
+		ret.put(ident.toString);
+		ret.put("{");
+		foreach (size_t id, const ADataType type; this.types){
+			foreach (string name, const size_t[] ids; this.names){
+				ptrdiff_t index = ids.countUntil(id);
+				if (index < 0) continue;
+				final switch (nameVis[name]){
+					case Visibility.Default:
+						break;
+					case Visibility.IPub:
+						ret.put("ipub ");
+						break;
+					case Visibility.Pub:
+						ret.put("pub ");
+						break;
+				}
+				ret.put(name);
+				if (ids.length > 1){
+					ret.put("[");
+					ret.put(index.to!string);
+					ret.put("]");
+				}
+				ret.put(" ");
+			}
+			ret.put(": ");
+			ret.put(type.toString);
+			if (initD[id].isVal){
+				ret.put(" = ");
+				ret.put(AVal(type, initD[id].val).toString);
+			}
+			ret.put("; ");
+		}
+		ret.put("}");
+		return ret.data;
 	}
 }
 
@@ -1886,8 +1886,9 @@ public struct AUnion{
 	IdentU[] ident;
 	/// types of members
 	ADataType[] types;
-	/// maps field names to indexes in `types`. can be null, if unnamed
-	size_t[string] names;
+	/// maps field names to sequence of indexes in `types`.
+	/// can be null, if unnamed
+	size_t[][string] names;
 	/// name's visibility. can be null, if unnamed
 	Visibility[string] nameVis;
 	/// initialisation type's index, or `size_t.max` if none
@@ -1931,6 +1932,16 @@ public struct AUnion{
 		return sizeOfField + size_t.sizeof;
 	}
 
+	/// Returns: range of human readable names for a member Id
+	auto namesOf(size_t memId, IdentU[] ctx = [IdentU.init]) const pure {
+		return names.byKey.filter!(n => exists(n, ctx))
+			.map!(n => tuple(n, names[n].countUntil(memId), names[n].length))
+			// (0 -> name, 1 -> index, 2 -> ids.length)
+			.filter!(n => n[1] >= 0)
+			.map!(n => n[2] == 1 ? n[0] : n[0].format!"%s[%d]"(n[1]))
+			.chain([memId.format!"<member %d>"]);
+	}
+
 	/// Returns: initialized instance of this, or nothing if cannot init
 	OptVal!(void[]) buildVal() const pure {
 		if (initI == size_t.max)
@@ -1945,16 +1956,21 @@ public struct AUnion{
 		if (src.type.type == ADataType.Type.Struct &&
 				src.type.structS !is null &&
 				!src.type.structS.isUnique &&
-				src.type.structS.names.length == 1 &&
-				exists(src.type.structS.names.byKey.takeOne[0], ctx)){
-			size_t id = this.names[src.type.structS.names.byKey.takeOne[0]];
-			const ADataType dstType = this.types[id];
-			OptVal!AVal convd = src.to(dstType, ctx);
-			if (convd.isVal){
-				void[] ret = new void[sizeOf];
-				ret[0 .. dstType.sizeOf] = convd.val.data;
-				*(cast(size_t*)(ret.ptr + sizeOfField)) = id;
-				return ret.OptVal!(void[]);
+				src.type.structS.names.length == 1){
+			string firstName = src.type.structS.names.byKey.takeOne[0];
+			if (exists(firstName, ctx)){
+				const size_t[] ids = this.names[firstName];
+				if (ids.length == 1){
+					size_t id = ids[0];
+					const ADataType dstType = this.types[id];
+					OptVal!AVal convd = src.to(dstType, ctx);
+					if (convd.isVal){
+						void[] ret = new void[sizeOf];
+						ret[0 .. dstType.sizeOf] = convd.val.data;
+						*(cast(size_t*)(ret.ptr + sizeOfField)) = id;
+						return ret.OptVal!(void[]);
+					}
+				}
 			}
 		}
 
@@ -1980,7 +1996,9 @@ public struct AUnion{
 
 		void[0][size_t] visIds;
 		foreach (string name; this.names.byKey.filter!(n => this.exists(n, ctx))){
-			visIds[this.names[name]] = (void[0]).init;
+			foreach (size_t id; this.names[name]){
+				visIds[id] = (void[0]).init;
+			}
 		}
 		size_t toInit = size_t.max;
 		foreach (size_t id; visIds.byKey){
@@ -2006,11 +2024,15 @@ public struct AUnion{
 		if (srcType.type == ADataType.Type.Struct &&
 				srcType.structS !is null &&
 				!srcType.structS.isUnique &&
-				srcType.structS.names.length == 1 &&
-				exists(srcType.structS.names.byKey.takeOne[0], ctx)){
-			size_t id = this.names[srcType.structS.names.byKey.takeOne[0]];
-			if (srcType.canCastTo(types[id], ctx))
-				return true;
+				srcType.structS.names.length == 1){
+			string firstName = srcType.structS.names.byKey.takeOne[0];
+			if (exists(firstName, ctx)){
+				const size_t[] ids = this.names[firstName];
+				if (ids.length == 1){
+					if (srcType.canCastTo(types[ids[0]], ctx))
+						return true;
+				}
+			}
 		}
 
 		if (names is null || names.length == 0){
@@ -2029,7 +2051,9 @@ public struct AUnion{
 
 		void[0][size_t] visIds;
 		foreach (string name; this.names.byKey.filter!(n => this.exists(n, ctx))){
-			visIds[this.names[name]] = (void[0]).init;
+			foreach (size_t id; this.names[name]){
+				visIds[id] = (void[0]).init;
+			}
 		}
 		size_t toInit = size_t.max;
 		foreach (size_t id; visIds.byKey){
@@ -2044,18 +2068,42 @@ public struct AUnion{
 	}
 
 	string toString() const pure {
-		return format!"union %s{%(%r,%)}"(ident.toString,
-				types.length.iota.map!(i => format!"[%-(%s,%)]:%s%s"(
-						names.byKey.filter!(n => names[n] == i)
-						.map!(n => (nameVis[n] == Visibility.Default ? ""
-								: nameVis[n] == Visibility.Pub ? "pub "
-								: nameVis[n] == Visibility.IPub ? "ipub " : "idk ")
-							.format!"%s%s"(n)).array,
-						types[i].toString,
-						initI == i
-							? AVal(types[i],initD.val).toString.format!"=%s"
-							: ""
-						)));
+		Appender!string ret;
+		ret.put("union ");
+		ret.put(ident.toString);
+		ret.put("{");
+		foreach (size_t id; 0 .. this.types.length){
+			foreach (string name, const size_t[] ids; this.names){
+				ptrdiff_t index = ids.countUntil(id);
+				if (index < 0) continue;
+				final switch (nameVis[name]){
+					case Visibility.Default:
+						break;
+					case Visibility.IPub:
+						ret.put("ipub ");
+						break;
+					case Visibility.Pub:
+						ret.put("pub ");
+						break;
+				}
+				ret.put(name);
+				if (ids.length > 1){
+					ret.put("[");
+					ret.put(index.to!string);
+					ret.put("]");
+				}
+				ret.put(" ");
+			}
+			ret.put(": ");
+			ret.put(this.types[id].toString);
+			if (initI == id){
+				ret.put(" = ");
+				ret.put(AVal(types[id], initD.val).toString);
+			}
+			ret.put("; ");
+		}
+		ret.put("}");
+		return ret.data;
 	}
 }
 

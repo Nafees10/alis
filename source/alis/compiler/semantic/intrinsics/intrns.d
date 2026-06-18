@@ -404,63 +404,62 @@ SmErrsVal!RExpr arrayTranslate(IntrSt st){
 	}
 }
 
-@Intr(IntrN.Members){
-	@CallabilityChecker
-	bool membersCanCall(AValCT[] params, IdentU[] ctx){
+private bool memberInfoCanCall(AValCT param){
+	final switch (param.type){
+		case AValCT.Type.Type:
+			final switch (param.typeT.type){
+				case ADataType.Type.IntX:
+				case ADataType.Type.UIntX:
+				case ADataType.Type.FloatX:
+				case ADataType.Type.Char:
+				case ADataType.Type.Bool:
+				case ADataType.Type.Slice:
+				case ADataType.Type.Array:
+				case ADataType.Type.Ref:
+				case ADataType.Type.NoInit:
+				case ADataType.Type.Fn:
+					return false;
+				case ADataType.Type.Struct:
+				case ADataType.Type.Union:
+				case ADataType.Type.Enum:
+					return true;
+			}
+		case AValCT.Type.Seq:
+			return false;
+		case AValCT.Type.Symbol:
+			final switch (param.symS.type){
+				case ASymbol.Type.Struct:
+				case ASymbol.Type.Union:
+				case ASymbol.Type.Enum:
+					return true;
+				case ASymbol.Type.Import:
+				case ASymbol.Type.Fn:
+				case ASymbol.Type.Var:
+				case ASymbol.Type.EnumConst:
+				case ASymbol.Type.UTest:
+				case ASymbol.Type.Alias:
+				case ASymbol.Type.Template:
+					return false;
+			}
+		case AValCT.Type.Expr:
+		case AValCT.Type.Literal:
+			return false;
+	}
+}
+
+@Intr(IntrN.MembersCount){
+	@CallabilityChecker bool membersCountCanCall(AValCT[] params, IdentU[] ctx){
 		if (params.length != 1)
 			return false;
-		AValCT p = params[0];
-		final switch (p.type){
-			case AValCT.Type.Type:
-				final switch (p.typeT.type){
-					case ADataType.Type.Seq:
-					case ADataType.Type.IntX:
-					case ADataType.Type.UIntX:
-					case ADataType.Type.FloatX:
-					case ADataType.Type.Char:
-					case ADataType.Type.Bool:
-					case ADataType.Type.Slice:
-					case ADataType.Type.Array:
-					case ADataType.Type.Ref:
-					case ADataType.Type.NoInit:
-					case ADataType.Type.Fn:
-						return false;
-					case ADataType.Type.Struct:
-					case ADataType.Type.Union:
-					case ADataType.Type.Enum:
-						return true;
-				}
-			case AValCT.Type.Expr:
-			case AValCT.Type.Seq:
-				return false;
-			case AValCT.Type.Symbol:
-				final switch (p.symS.type){
-					case ASymbol.Type.Struct:
-					case ASymbol.Type.Union:
-					case ASymbol.Type.Enum:
-					case ASymbol.Type.Import:
-						return true;
-					case ASymbol.Type.Fn:
-					case ASymbol.Type.Var:
-					case ASymbol.Type.EnumConst:
-					case ASymbol.Type.UTest:
-					case ASymbol.Type.Alias:
-					case ASymbol.Type.Template:
-						return false;
-				}
-			case AValCT.Type.Literal:
-				return false;
-		}
+		return memberInfoCanCall(params[0]);
 	}
-
 	@ExprTranslator
-	SmErrsVal!RExpr membersTranslate(IntrSt st){
+	SmErrsVal!RExpr membersCountTranslate(IntrSt st){
 		AValCT p = st.params[0];
-		AValCT[] names;
+		size_t count = 0;
 		final switch (p.type){
 			case AValCT.Type.Type:
 				final switch (p.typeT.type){
-					case ADataType.Type.Seq:
 					case ADataType.Type.IntX:
 					case ADataType.Type.UIntX:
 					case ADataType.Type.FloatX:
@@ -476,95 +475,82 @@ SmErrsVal!RExpr arrayTranslate(IntrSt st){
 						AStruct* symC = p.typeT.structS;
 						if (symC is null)
 							break;
-						names = symC.names.byKey
-							.filter!(s => symC.exists(s, st.ctx))
-							.map!(s => s.AVal.AValCT)
-							.array;
+						count = symC.types.length;
 						break;
 					case ADataType.Type.Union:
 						AUnion* symC = p.typeT.unionS;
-						names = symC.names.byKey
-							.filter!(s => symC.exists(s, st.ctx))
-							.map!(s => s.AVal.AValCT)
-							.array;
+						count = symC.types.length;
 						break;
 					case ADataType.Type.Enum:
 						AEnum* symC = p.typeT.enumS;
-						names = symC.memId
-							.map!(s => s.AVal.AValCT)
-							.array;
+						count = symC.memId.length;
 						break;
 				}
 				break;
 			case AValCT.Type.Expr:
 			case AValCT.Type.Seq:
-				assert (false); // CallabilityChecker should've stopped this
+				assert (false);
 			case AValCT.Type.Symbol:
 				final switch (p.symS.type){
 					case ASymbol.Type.Struct:
 						AStruct* symC = &p.symS.structS;
-						names = symC.names.byKey
-							.filter!(s => symC.exists(s, st.ctx))
-							.map!(s => s.AVal.AValCT)
-							.array;
+						if (symC is null)
+							break;
+						count = symC.types.length;
 						break;
 					case ASymbol.Type.Union:
 						AUnion* symC = &p.symS.unionS;
-						names = symC.names.byKey
-							.filter!(s => symC.exists(s, st.ctx))
-							.map!(s => s.AVal.AValCT)
-							.array;
+						count = symC.types.length;
 						break;
 					case ASymbol.Type.Enum:
 						AEnum* symC = &p.symS.enumS;
-						names = symC.memId
-							.map!(s => s.AVal.AValCT)
-							.array;
+						count = symC.memId.length;
 						break;
 					case ASymbol.Type.Import:
-						return SmErrsVal!RExpr([errUnsup(st.pos, "$members(import)")]);
 					case ASymbol.Type.Fn:
 					case ASymbol.Type.Var:
 					case ASymbol.Type.EnumConst:
 					case ASymbol.Type.UTest:
 					case ASymbol.Type.Alias:
 					case ASymbol.Type.Template:
-						assert (false); // CallabilityChecker should've stopped this
+						assert (false);
 				}
 				break;
 			case AValCT.Type.Literal:
 				assert (false); // CallabilityChecker should've stopped this
 		}
-		RAValCTExpr r = new RAValCTExpr(names.AValCT);
+		RAValCTExpr r = new RAValCTExpr(count.AVal.AValCT);
 		r.pos = st.pos;
 		return SmErrsVal!RExpr(r);
 	}
 }
 
-@Intr(IntrN.MemberField){
-	@CallabilityChecker
-	bool memberFieldCanCall(AValCT[] params, IdentU[] ctx){
+@Intr(IntrN.MemberNames){
+	@CallabilityChecker bool memberNamesCanCall(AValCT[] params, IdentU[] ctx){
 		if (params.length != 2)
 			return false;
-		if (!params[0 .. 1].membersCanCall(ctx))
+		if (!memberInfoCanCall(params[0]))
 			return false;
-		if (params[1].type != AValCT.Type.Literal ||
-				params[1].val.type != ADataType.ofString)
+		if (params[1].type != AValCT.Type.Literal)
+			return false;
+		if (!params[1].val.canCastTo(ADataType.ofUInt, ctx))
 			return false;
 		return true;
 	}
-
 	@ExprTranslator
-	SmErrsVal!RExpr memberFieldTranslate(IntrSt st){
+	SmErrsVal!RExpr memberNamesTranslate(IntrSt st){
 		AValCT p = st.params[0];
-		assert (st.params[1].type == AValCT.Type.Literal);
-		assert (st.params[1].val.type == ADataType.ofString);
-		string name = st.params[1].val.as!string.val;
-		string res;
+		OptVal!AVal idValRes = st.params[1].val.to(ADataType.ofUInt, st.ctx);
+		if (!idValRes.isVal || !idValRes.val.as!size_t.isVal){
+			return SmErrsVal!RExpr([
+					errIncompatType(st.pos, ADataType.ofUInt.toString,
+						st.params[1].valType.val.toString)]);
+		}
+		size_t id = idValRes.val.as!size_t.val;
+		string[] names;
 		final switch (p.type){
 			case AValCT.Type.Type:
 				final switch (p.typeT.type){
-					case ADataType.Type.Seq:
 					case ADataType.Type.IntX:
 					case ADataType.Type.UIntX:
 					case ADataType.Type.FloatX:
@@ -578,84 +564,184 @@ SmErrsVal!RExpr arrayTranslate(IntrSt st){
 						assert (false);
 					case ADataType.Type.Struct:
 						AStruct* symC = p.typeT.structS;
-						if (symC is null || !symC.exists(name, st.ctx))
-							return SmErrsVal!RExpr([
-									errMemberNoExist(st.pos, p.toString, name)]);
-						immutable size_t target = symC.names[name];
-						foreach (string n, size_t id; symC.names){
-							if (id == target){
-								res = n;
-								break;
-							}
+						if (symC is null)
+							break;
+						foreach (string name, const size_t[] ids; symC.names){
+							if (ids.length == 1 && ids[0] == id && symC.exists(name, st.ctx))
+								names ~= name;
 						}
 						break;
 					case ADataType.Type.Union:
 						AUnion* symC = p.typeT.unionS;
-						if (!symC.exists(name, st.ctx))
-							return SmErrsVal!RExpr([
-									errMemberNoExist(st.pos, p.toString, name)]);
-						immutable size_t target = symC.names[name];
-						foreach (string n, size_t id; symC.names){
-							if (id == target){
-								res = n;
-								break;
-							}
+						foreach (string name, const size_t[] ids; symC.names){
+							if (ids.length == 1 && ids[0] == id && symC.exists(name, st.ctx))
+								names ~= name;
 						}
 						break;
 					case ADataType.Type.Enum:
-						res = name;
+						AEnum* symC = p.typeT.enumS;
+						if (id >= symC.memId.length){
+							return SmErrsVal!RExpr([
+									errBounds(st.pos, symC.memId.length, id)]);
+						}
+						names ~= symC.memId[id];
 						break;
 				}
 				break;
 			case AValCT.Type.Expr:
 			case AValCT.Type.Seq:
-				assert (false); // CallabilityChecker should've stopped this
+				assert (false);
 			case AValCT.Type.Symbol:
 				final switch (p.symS.type){
 					case ASymbol.Type.Struct:
 						AStruct* symC = &p.symS.structS;
-						if (!symC.exists(name, st.ctx))
-							return SmErrsVal!RExpr([
-									errMemberNoExist(st.pos, p.toString, name)]);
-						immutable size_t target = symC.names[name];
-						foreach (string n, size_t id; symC.names){
-							if (id == target){
-								res = n;
-								break;
-							}
+						if (symC is null)
+							break;
+						foreach (string name, const size_t[] ids; symC.names){
+							if (ids.length == 1 && ids[0] == id && symC.exists(name, st.ctx))
+								names ~= name;
 						}
 						break;
 					case ASymbol.Type.Union:
 						AUnion* symC = &p.symS.unionS;
-						if (!symC.exists(name, st.ctx))
-							return SmErrsVal!RExpr([
-									errMemberNoExist(st.pos, p.toString, name)]);
-						immutable size_t target = symC.names[name];
-						foreach (string n, size_t id; symC.names){
-							if (id == target){
-								res = n;
-								break;
-							}
+						foreach (string name, const size_t[] ids; symC.names){
+							if (ids.length == 1 && ids[0] == id && symC.exists(name, st.ctx))
+								names ~= name;
 						}
 						break;
 					case ASymbol.Type.Enum:
-						res = name;
+						AEnum* symC = &p.symS.enumS;
+						if (id >= symC.memId.length){
+							return SmErrsVal!RExpr([
+									errBounds(st.pos, symC.memId.length, id)]);
+						}
+						names ~= symC.memId[id];
 						break;
 					case ASymbol.Type.Import:
-						return SmErrsVal!RExpr([errUnsup(st.pos, "$members(import)")]);
 					case ASymbol.Type.Fn:
 					case ASymbol.Type.Var:
 					case ASymbol.Type.EnumConst:
 					case ASymbol.Type.UTest:
 					case ASymbol.Type.Alias:
 					case ASymbol.Type.Template:
-						assert (false); // CallabilityChecker should've stopped this
+						assert (false);
 				}
 				break;
 			case AValCT.Type.Literal:
 				assert (false); // CallabilityChecker should've stopped this
 		}
-		RAValCTExpr r = new RAValCTExpr(res.AVal.AValCT);
+		RAValCTExpr r = new RAValCTExpr(
+				names.map!(n => n.AVal.AValCT).array.AValCT);
+		r.pos = st.pos;
+		return SmErrsVal!RExpr(r);
+	}
+}
+
+@Intr(IntrN.MemberIds){
+	@CallabilityChecker bool memberIdsCanCall(AValCT[] params, IdentU[] ctx){
+		if (params.length != 2)
+			return false;
+		if (!memberInfoCanCall(params[0]))
+			return false;
+		if (params[1].type != AValCT.Type.Literal)
+			return false;
+		if (params[1].val.type != ADataType.ofString)
+			return false;
+		return true;
+	}
+	@ExprTranslator
+	SmErrsVal!RExpr memberIdsTranslate(IntrSt st){
+		AValCT p = st.params[0];
+		OptVal!string nameRes = st.params[1].val.as!string;
+		if (!nameRes.isVal){
+			return SmErrsVal!RExpr([
+					errIncompatType(st.pos, ADataType.ofUInt.toString,
+						st.params[1].valType.val.toString)]);
+		}
+		string name = nameRes.val;
+		size_t[] ids;
+		final switch (p.type){
+			case AValCT.Type.Type:
+				final switch (p.typeT.type){
+					case ADataType.Type.IntX:
+					case ADataType.Type.UIntX:
+					case ADataType.Type.FloatX:
+					case ADataType.Type.Char:
+					case ADataType.Type.Bool:
+					case ADataType.Type.Slice:
+					case ADataType.Type.Array:
+					case ADataType.Type.Ref:
+					case ADataType.Type.NoInit:
+					case ADataType.Type.Fn:
+						assert (false);
+					case ADataType.Type.Struct:
+						AStruct* symC = p.typeT.structS;
+						if (symC is null ||
+								!symC.exists(name, st.ctx) ||
+								symC.names[name].length != 1)
+							break;
+						ids = symC.names[name];
+						break;
+					case ADataType.Type.Union:
+						AUnion* symC = p.typeT.unionS;
+						if (!symC.exists(name, st.ctx) ||
+								symC.names[name].length != 1)
+							break;
+						ids = symC.names[name];
+						break;
+					case ADataType.Type.Enum:
+						AEnum* symC = p.typeT.enumS;
+						ptrdiff_t index = symC.memId.countUntil(name);
+						if (index >= 0)
+							ids = [index];
+						break;
+				}
+				break;
+			case AValCT.Type.Expr:
+			case AValCT.Type.Seq:
+				assert (false);
+			case AValCT.Type.Symbol:
+				final switch (p.symS.type){
+					case ASymbol.Type.Struct:
+						AStruct* symC = &p.symS.structS;
+						if (symC is null ||
+								!symC.exists(name, st.ctx) ||
+								symC.names[name].length != 1)
+							break;
+						ids = symC.names[name];
+						break;
+					case ASymbol.Type.Union:
+						AUnion* symC = &p.symS.unionS;
+						if (!symC.exists(name, st.ctx) ||
+								symC.names[name].length != 1)
+							break;
+						ids = symC.names[name];
+						break;
+					case ASymbol.Type.Enum:
+						AEnum* symC = &p.symS.enumS;
+						ptrdiff_t index = symC.memId.countUntil(name);
+						if (index >= 0)
+							ids = [index];
+						break;
+					case ASymbol.Type.Import:
+					case ASymbol.Type.Fn:
+					case ASymbol.Type.Var:
+					case ASymbol.Type.EnumConst:
+					case ASymbol.Type.UTest:
+					case ASymbol.Type.Alias:
+					case ASymbol.Type.Template:
+						assert (false);
+				}
+				break;
+			case AValCT.Type.Literal:
+				assert (false); // CallabilityChecker should've stopped this
+		}
+		RAValCTExpr r;
+		if (ids.length == 1){
+			r = new RAValCTExpr(ids[0].AVal.AValCT);
+		} else {
+			r = new RAValCTExpr(ids.map!(i => i.AVal.AValCT).array.AValCT);
+		}
 		r.pos = st.pos;
 		return SmErrsVal!RExpr(r);
 	}
@@ -713,47 +799,76 @@ SmErrsVal!RExpr arrayTranslate(IntrSt st){
 			type = *(type.refT);
 			if (type.type == ADataType.Type.Struct){
 				AStruct* structS = type.structS;
-				if (type.type == ADataType.Type.Struct)
-					r = new RStructRefMemberGetExpr(lhsExpr,
-							structS.names[name],
-							type.isConst || (
-								structS.ident.length && st.ctx.length &&
-								st.ctx[0] != structS.ident[0] &&
-								structS.nameVis[name] == Visibility.IPub)
-							);
+				if (structS !is null && structS.exists(name, st.ctx)){
+					immutable bool isConst = type.isConst || (
+							structS.ident.length && st.ctx.length &&
+							st.ctx[0] != structS.ident[0] &&
+							structS.nameVis[name] == Visibility.IPub);
+					const size_t[] ids = structS.names[name];
+					if (ids.length == 1){
+						r = new RStructRefMemberGetExpr(lhsExpr, ids[0], isConst);
+					} else {
+						r = new RAValCTExpr(ids
+								.map!(i => AValCT(
+										new RStructRefMemberGetExpr(lhsExpr, i, isConst)))
+								.array.AValCT);
+					}
+				}
 			} else
 			if (type.type == ADataType.Type.Union){
 				AUnion* unionS = type.unionS;
-				r = new RUnionRefMemberGetExpr(lhsExpr,
-						unionS.names[name],
-						type.isConst || (
+				if (unionS.exists(name, st.ctx)){
+					immutable bool isConst = type.isConst || (
 							unionS.ident.length && st.ctx.length &&
 							st.ctx[0] != unionS.ident[0] &&
-							unionS.nameVis[name] == Visibility.IPub)
-						);
+							unionS.nameVis[name] == Visibility.IPub);
+					const size_t[] ids = unionS.names[name];
+					if (ids.length == 1){
+						r = new RUnionRefMemberGetExpr(lhsExpr, ids[0], isConst);
+					} else {
+						r = new RAValCTExpr(ids
+								.map!(i => AValCT(
+										new RUnionRefMemberGetExpr(lhsExpr, i, isConst)))
+								.array.AValCT);
+					}
+				}
 			}
 		} else
 		if (type.type == ADataType.Type.Struct){
 			AStruct* structS = type.structS;
-			if (structS !is null && structS.exists(name, st.ctx))
-				r = new RStructMemberGetExpr(lhsExpr,
-						structS.names[name],
-						type.isConst || (
-							structS.ident.length && st.ctx.length &&
-							st.ctx[0] != structS.ident[0] &&
-							structS.nameVis[name] == Visibility.IPub)
-						);
+			if (structS !is null && structS.exists(name, st.ctx)){
+				immutable bool isConst = type.isConst || (
+						structS.ident.length && st.ctx.length &&
+						st.ctx[0] != structS.ident[0] &&
+						structS.nameVis[name] == Visibility.IPub);
+				const size_t[] ids = structS.names[name];
+				if (ids.length == 1){
+					r = new RStructMemberGetExpr(lhsExpr, ids[0], isConst);
+				} else {
+					r = new RAValCTExpr(ids
+							.map!(i => AValCT(
+									new RStructMemberGetExpr(lhsExpr, i, isConst)))
+							.array.AValCT);
+				}
+			}
 		} else
 		if (type.type == ADataType.Type.Union){
 			AUnion* unionS = type.unionS;
-			if (unionS.exists(name, st.ctx))
-				r = new RUnionMemberGetExpr(lhsExpr,
-						unionS.names[name],
-						type.isConst || (
-							unionS.ident.length && st.ctx.length &&
-							st.ctx[0] != unionS.ident[0] &&
-							unionS.nameVis[name] == Visibility.IPub)
-						);
+			if (unionS.exists(name, st.ctx)){
+				immutable bool isConst = type.isConst || (
+						unionS.ident.length && st.ctx.length &&
+						st.ctx[0] != unionS.ident[0] &&
+						unionS.nameVis[name] == Visibility.IPub);
+				const size_t[] ids = unionS.names[name];
+				if (ids.length == 1){
+					r = new RUnionMemberGetExpr(lhsExpr, ids[0], isConst);
+				} else {
+					r = new RAValCTExpr(ids
+							.map!(i => AValCT(
+									new RUnionMemberGetExpr(lhsExpr, i, isConst)))
+							.array.AValCT);
+				}
+			}
 		}
 		if (r is null){
 			return SmErrsVal!RExpr([

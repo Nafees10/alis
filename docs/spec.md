@@ -1796,12 +1796,20 @@ directly dependent on the underlying data structures in the compiler/runtime.
 
 - `unionIs(T.M)` - whether a union's tag indicates `M` member being stored, or
     member of type `M`.
-- `members(T)` - gets accessible member names as string sequence for a
-    union/struct/enum type `T`. This will include aliases as well. 
-- `memberField(T, N)` - gets actual field name for a member `N` on union/struct
-    type `T`. Use to "de-alias" members to actual underlying member.
-- `member(T, N)` - get member with name `N`, on enum type `T`, or
-    union/struct/enum type `T`.
+- `membersCount(T)` - gets number of members in a data type `T`, which can be a
+    union, struct, or enum.
+- `memberNames(T, I)` - gets sequence of names of member with `memberId == I`,
+    of a union, struct, or enum `T`. Multiple names per single member are
+    possible due to aliases. `memberId` is the member index, which goes up to
+    `membersCount(T) - 1`. Only names accesible in current scope are included.
+    Note that not all members will be named. In case of `T` being an enum,
+    this gets the name of a member at index `I`.
+- `memberIds(T, N)` - gets sequence of `memberId` (`uint`) for sequence of
+    members referred to by a `name == N`, on a union/struct type `T`. Only
+    works if `N` is accessible in current scope. In case `T` is an enum, the
+    result is a single `uint`, or empty sequence.
+- `member(T, N)` - gets member on a union/struct instance `T`. `N` is the 
+    member name (`string`).
 
 ## Attributes
 

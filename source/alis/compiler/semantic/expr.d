@@ -403,7 +403,7 @@ private bool resultSet(Location pos, RExpr expr, ref St st){
 		ASymbol* sym = new ASymbol(AStruct());
 		AStruct* symC = &(sym.structS);
 		foreach (size_t i, string name; names){
-			symC.names[name] = i;
+			symC.names[name] = [i];
 			symC.nameVis[name] = Visibility.Pub;
 		}
 		symC.initD = vals.length.iota.map!(i => OptVal!(void[])()).array;
@@ -791,46 +791,6 @@ private bool resultSet(Location pos, RExpr expr, ref St st){
 				return;
 			}
 			subVal = subValRes.val;
-		}
-
-		if (sub.type.type == ADataType.Type.Seq){
-			if (node.indexes.length != 1){
-				st.errs ~= errParamCount(node.pos, "index", 1, node.indexes.length);
-				return;
-			}
-			AValCT ind; {
-				SmErrsVal!AValCT indRes = eval(node.indexes[0], st.stabR, st.ctx,
-						st.dep, st.fns);
-				if (indRes.isErr){
-					st.errs ~= indRes.err;
-					return;
-				}
-				ind = indRes.val;
-			}
-			if (ind.type != AValCT.Type.Literal){
-				st.errs ~= errIncompatType(node.indexes[0].pos, "uint literal",
-						ind.toString);
-				return;
-			}
-			if (!ind.val.canCastTo(ADataType.ofUInt)){
-				st.errs ~= errIncompatType(node.indexes[0].pos, "uint",
-						ind.val.type.toString);
-				return;
-			}
-			if (subVal.type != AValCT.Type.Seq){
-				st.errs ~= errIncompatType(node.lhs.pos, "sequence", sub.toString);
-				return;
-			}
-			ind = ind.to(ADataType.ofUInt).val;
-			size_t indI = ind.val.data.as!size_t;
-			if (indI >= subVal.seq.length){
-				st.errs ~= errBounds(node.indexes[0].pos, subVal.seq.length, indI);
-				return;
-			}
-			RExpr r = subVal.seq[indI].toRExpr;
-			r.pos = node.pos;
-			resultSet(node.pos, r, st);
-			return;
 		}
 
 		RExpr[] params;

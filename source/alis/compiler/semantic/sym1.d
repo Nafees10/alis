@@ -366,6 +366,7 @@ private bool isRecDep(ASTNode node, ref St1 st){
 					continue;
 				}
 			} else {
+			// TODO: handle type sequences
 				SmErrsVal!ADataType typeRes = eval4Type(field.type, st.stabR, st.ctx,
 						st.dep, st.fns);
 				if (typeRes.isErr){
@@ -401,10 +402,10 @@ private bool isRecDep(ASTNode node, ref St1 st){
 			}
 			foreach (string name; aliasMap.byKey
 					.filter!(n => aliasMap[n] == field.name)){
-				symC.names[name] = symC.types.length;
+				symC.names[name] = [symC.types.length];
 				symC.nameVis[name] = aliasVis[name];
 			}
-			symC.names[field.name] = symC.types.length;
+			symC.names[field.name] = [symC.types.length];
 			symC.nameVis[field.name] = field.visibility;
 			symC.types ~= type;
 		}
@@ -608,6 +609,7 @@ private void structDo(Struct s, AStruct* symC, ref St1 st){
 				continue;
 			}
 		} else {
+			// TODO: handle type sequences
 			SmErrsVal!ADataType typeRes = eval4Type(field.type, st.stabR, st.ctx,
 					st.dep, st.fns);
 			if (typeRes.isErr){
@@ -643,10 +645,10 @@ private void structDo(Struct s, AStruct* symC, ref St1 st){
 		}
 		foreach (string name; aliasMap.byKey
 				.filter!(n => aliasMap[n] == field.name)){
-			symC.names[name] = symC.types.length;
+			symC.names[name] = [symC.types.length];
 			symC.nameVis[name] = aliasVis[name];
 		}
-		symC.names[field.name] = symC.types.length;
+		symC.names[field.name] = [symC.types.length];
 		symC.nameVis[field.name] = field.visibility;
 		symC.types ~= type;
 	}
@@ -730,6 +732,7 @@ package void unionNamedDo(NamedUnion node, ASymbol* sym, ref St1 st){
 				continue;
 			}
 		} else {
+			// TODO: handle type sequences
 			SmErrsVal!ADataType typeRes = eval4Type(field.type, st.stabR, st.ctx,
 					st.dep, st.fns);
 			if (typeRes.isErr){
@@ -767,10 +770,10 @@ package void unionNamedDo(NamedUnion node, ASymbol* sym, ref St1 st){
 		}
 		foreach (string name; aliasMap.byKey
 				.filter!(n => aliasMap[n] == field.name)){
-			symC.names[name] = symC.types.length;
+			symC.names[name] = [symC.types.length];
 			symC.nameVis[name] = aliasVis[name];
 		}
-		symC.names[field.name] = symC.types.length;
+		symC.names[field.name] = [symC.types.length];
 		symC.nameVis[field.name] = field.visibility;
 		symC.types ~= type;
 	}
