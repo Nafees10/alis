@@ -167,11 +167,7 @@ public struct AValCT{
 					return sub.res.isVal;
 				return true;
 			case Type.Seq:
-				foreach (AValCT val; seq){
-					if (!val.isVal)
-						return false;
-				}
-				return true;
+				return false;
 		}
 	}
 
